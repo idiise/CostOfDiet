@@ -53,6 +53,33 @@ COTD <- base %>% slice(
 )
 names(COTD) <- names(CDQG)
 
+# # Extraction du quatrième tableau
+TDQNPEPF <- base %>% slice(
+  (col_DailyQuantities +1):(col_NutrientPortion-1)
+)
+names(TDQNPEPF) <- TDQNPEPF %>% slice(1) %>% unlist()
+TDQNPEPF <- TDQNPEPF[-1,]
+colnames(TDQNPEPF)[1] <- "indicateurs"
+
+difference <- setdiff(TDQNPEPF$indicateurs, BaseFinal$variables)
+TDQNPEPF <- TDQNPEPF %>% 
+  filter( !(indicateurs %in% difference) )
+
+# # Extraction cinquième tableau
+last_row <- nrow(base)
+TPNTPEDF <- base %>% slice(
+  (col_NutrientPortion + 1):(last_row)
+)
+names(TPNTPEDF) <- TPNTPEDF %>% slice(1) %>% unlist()
+TPNTPEDF <- TPNTPEDF[-1,]
+colnames(TPNTPEDF)[1] <- "indicateurs"
+
+difference2 <- setdiff(TPNTPEDF$indicateurs, BaseFinal$variables)
+TPNTPEDF <- TPNTPEDF %>% 
+  filter( !(indicateurs %in% difference2) )
+
+#  changer les noms des variables du tableau 4 pour avoir la même chose
+colnames(TDQNPEPF) <- colnames(TPNTPEDF)
 # Arrangement des bases de données ----------------------------------------
 
 # suppresion des Totals dans les tableaux extraites
@@ -69,16 +96,31 @@ COTD <- COTD %>% select(-ncol(COTD)) %>%
   select(-which(str_detect(colnames(COTD), "Total")))
 
 # Pivoter les tableaux ----------------------------------------------------
-
+# tab1
 CDQG <- CDQG %>% 
   pivot_longer(!indicateurs, names_to = "variables", values_to = "cdqg")
-
+# tab2
 DNSF <- DNSF %>% 
   pivot_longer(!indicateurs, names_to = "variables", values_to ="dnsf")
-
+# tab3
 COTD <- COTD %>% 
   pivot_longer(!indicateurs, names_to = "variables", values_to ="cotd")
 
 Base1 <- CDQG %>% left_join(DNSF, by = c("indicateurs","variables"))
 
 BaseFinal <- Base1 %>% left_join(COTD, by = c("indicateurs","variables"))
+# tab4
+TDQNPEPF <- TDQNPEPF %>% rename("variables" = indicateurs  ) %>% 
+  pivot_longer(!variables, names_to = "indicateurs", values_to = "tdqnpedf")
+# tab5
+TPNTPEDF <- TPNTPEDF %>% rename("variables" = indicateurs) %>% 
+  pivot_longer(!variables, names_to = "indicateurs", values_to = "tpntpedf")
+
+BaseFinal2 <- TDQNPEPF %>% left_join(TPNTPEDF, by = c("indicateurs","variables"))
+
+setdiff(BaseFinal$variables, BaseFinal2$variables)
+setdiff(BaseFinal2$variables, BaseFinal$variables)
+
+FinalData <- BaseFinal %>% left_join(BaseFinal2, by = c("variables"))
+FinalData <- FinalData %>% rename("Food Name" = variables)
+test <- dplyr::union(BaseFinal, BaseFinal2)
