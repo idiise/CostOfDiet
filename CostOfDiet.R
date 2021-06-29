@@ -5,7 +5,7 @@ library(openxlsx)
 library(janitor)
 library(tidyverse)
 library(stringr)
-
+library(writexl)
 # Beginning data processing -----------------------------------------------
 
 base <- openxlsx::read.xlsx("CostOfTheDietSummaryDays_Household.xlsx",sheet = 1)
@@ -121,6 +121,50 @@ BaseFinal2 <- TDQNPEPF %>% left_join(TPNTPEDF, by = c("indicateurs","variables")
 setdiff(BaseFinal$variables, BaseFinal2$variables)
 setdiff(BaseFinal2$variables, BaseFinal$variables)
 
-FinalData <- BaseFinal %>% left_join(BaseFinal2, by = c("variables"))
+FinalData <- merge(BaseFinal, BaseFinal2, all=TRUE)
 FinalData <- FinalData %>% rename("Food Name" = variables)
-test <- dplyr::union(BaseFinal, BaseFinal2)
+nlevels(as.factor(FinalData$`Food Name`))
+nlevels(as.factor(FinalData$indicateurs))
+FinalData$cotd <- round(as.numeric(FinalData$cotd), 2)
+FinalData$tdqnpedf <- round(as.numeric(FinalData$tdqnpedf), 2)
+FinalData$tpntpedf <- round(as.numeric(FinalData$tpntpedf), 2)
+FinalData$cdqg <- as.numeric(FinalData$cdqg)
+FinalData$dnsf <- as.numeric(FinalData$dnsf)
+
+# détecter les colonnes fixes ---------------------------------------------
+
+
+Row_assessment <- which(str_detect(base[,1], "Assessment:"))
+Row_season <- which(str_detect(base[,1], "Season:"))
+Row_model <- which(str_detect(base[,1], "Model:"))
+Row_Diet <- which(str_detect(base[,1], "Diet:"))
+Row_DietType <- which(str_detect(base[,1], "Diet Type:"))
+
+# str_sub(string = base[Row_Diet,1], start = 2+str_locate(base[Row_Diet,1], pattern = ":")[1], end = -1)
+# str_locate(base[Row_Diet,1], pattern = ":")[1]
+
+
+FinalData <- FinalData %>% mutate(
+  Adm0 = "Niger",
+  ZME = "",
+  Adm1 = str_sub(string = base[Row_assessment,1], 
+                 start = 2+str_locate(base[Row_assessment,1],pattern = ":")[1], 
+                 end = (str_locate(base[Row_assessment,1],pattern = "-")[1]-2)),
+
+  Adm2 = "",
+  Market = "",
+  Season = str_sub(string = base[Row_season,1], start = 2+str_locate(base[Row_season,1], 
+                                                                     pattern = ":")[1], end = -1),
+
+  Model = str_sub(string = base[Row_model,1], start = 2+str_locate(base[Row_model,1], pattern = ":")[1], end = -1),
+
+  Diet = str_sub(string = base[Row_Diet,1], start = 2+str_locate(base[Row_Diet,1], pattern = ":")[1], end = -1),
+
+  "Diet type" = str_sub(string = base[Row_DietType,1], 
+                        start = 2+str_locate(base[Row_DietType,1], pattern = ":")[1], end = -1)
+,
+  Date = ""
+)
+# Sauvegarde de la base de données ----------------------------------------
+
+write_xlsx(FinalData, "CostOfDiet.xlsx")
